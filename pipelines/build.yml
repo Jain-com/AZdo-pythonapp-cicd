@@ -1,0 +1,61 @@
+parameters:
+  pythonVersion: "3.10"
+
+stages:
+  - stage: build
+    displayName: build and test
+    jobs:
+      - job: build_and_test
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: ${{parameters.pythonVersion}}
+              addToPath: true
+              architecture: 'x64'
+# create a PIP cache directoru
+          - script: 'mkdir -p /home/jain/.cache/pip'
+            displayName: 'Ensure PIP cache directory exists'
+            
+          # cache PIP package between pipeline runs to speed up dependency installation
+          - task: Cache@2
+            inputs:
+              key: 'python | "$(Agent.Os)" | requirements.txt'
+              path: '/home/jain/.cache/pip'
+          - script: |
+              pip install --upgrade pip
+              pip install -r requirements.txt
+            displayName: install dependency 
+         # run flake8
+          - script: flake8
+            displayName: lint code
+         # run pytest
+          - script: |
+              export PYTHONPATH=$(pwd)
+              pytest tests/
+            displayName: Run unit tests
+         # run bandit
+          - script: |
+              python -m pip install bandit
+            displayName: Install bandit
+         # scan the codebase
+          - script: |
+              bandit -r .
+            displayName: scan codebase
+          - script: |
+              sudo apt-get update && sudo apt-get install -y zip
+            displayName: 'Install zip utility'  
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+              includeRootFolder: true
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/pythonapp.zip'
+              replaceExistingArchive: true
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/pythonapp.zip'
+              ArtifactName: 'drop'
+              publishLocation: 'Container'
+          
+
+          
