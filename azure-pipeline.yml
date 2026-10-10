@@ -1,0 +1,13 @@
+#this pipeline will call the other 3 build files
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: 'Default' 
+  
+stages:
+  - template: pipelines/build.yml
+  - template: pipelines/deploy-dev.yml
+  - template: pipelines/deploy-prod.yml
